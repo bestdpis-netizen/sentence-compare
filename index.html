@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>문장 비교기</title>
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --panel: #ffffff;
+    --border: #e2e5ea;
+    --border-strong: #cbd0d9;
+    --text: #1c2029;
+    --muted: #6b7280;
+    --accent: #4f46e5;
+    --add-bg: #d9f2e3;
+    --add-text: #0f6b3d;
+    --del-bg: #fbdde2;
+    --del-text: #a01230;
+    --shadow: 0 1px 2px rgba(16,20,30,.04), 0 8px 24px rgba(16,20,30,.06);
+    --sans: -apple-system, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", system-ui, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14161b;
+      --panel: #1c1f26;
+      --border: #2a2e37;
+      --border-strong: #3a404b;
+      --text: #e6e8ec;
+      --muted: #9aa1ac;
+      --accent: #8b85f5;
+      --add-bg: #10402a;
+      --add-text: #6ee7a8;
+      --del-bg: #451420;
+      --del-text: #f6a3b4;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html { font-size: 12px; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap {
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 40px 20px 64px;
+  }
+  header { margin-bottom: 28px; }
+  .clock {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 14px;
+    padding: 6px 12px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--panel);
+    box-shadow: var(--shadow);
+    font-variant-numeric: tabular-nums;
+  }
+  .clock .clk-label {
+    font-size: .72rem;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  .clock .clk-date { font-size: .9rem; color: var(--muted); }
+  .clock .clk-time { font-size: 1.05rem; font-weight: 650; color: var(--text); }
+  h1 {
+    font-size: 1.6rem;
+    font-weight: 650;
+    letter-spacing: -.02em;
+    margin: 0 0 6px;
+    text-wrap: balance;
+  }
+  .sub { color: var(--muted); font-size: .95rem; margin: 0; }
+
+  .inputs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  @media (max-width: 620px) { .inputs { grid-template-columns: 1fr; } }
+
+  .field label {
+    display: block;
+    font-size: .78rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+  textarea {
+    width: 100%;
+    min-height: 140px;
+    resize: vertical;
+    padding: 14px 16px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--panel);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 1rem;
+    line-height: 1.6;
+    box-shadow: var(--shadow);
+    transition: border-color .15s, box-shadow .15s;
+  }
+  textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: var(--shadow), 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+  }
+
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin: 20px 0 8px;
+    flex-wrap: wrap;
+  }
+  button.primary {
+    font: inherit;
+    font-weight: 600;
+    color: #fff;
+    background: var(--accent);
+    border: none;
+    padding: 10px 22px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: filter .15s, transform .05s;
+  }
+  button.primary:hover { filter: brightness(1.08); }
+  button.primary:active { transform: translateY(1px); }
+  button.primary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: .9rem;
+    color: var(--muted);
+    cursor: pointer;
+    user-select: none;
+  }
+  .toggle input { accent-color: var(--accent); width: 16px; height: 16px; }
+
+  .stats {
+    display: flex;
+    gap: 18px;
+    margin: 18px 0 12px;
+    font-size: .85rem;
+    color: var(--muted);
+    flex-wrap: wrap;
+  }
+  .stats b { color: var(--text); font-variant-numeric: tabular-nums; font-weight: 650; }
+  .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; vertical-align: baseline; }
+  .dot.add { background: var(--add-text); }
+  .dot.del { background: var(--del-text); }
+
+  /* 문장이 표시되는 영역: 테마와 무관하게 항상 흰 배경 + 검정 글자 */
+  .result {
+    border: 1px solid #cbd0d9;
+    border-radius: 12px;
+    background: #ffffff;
+    color: #000000;
+    box-shadow: var(--shadow);
+    padding: 20px 22px;
+    font-size: 1.05rem;
+    line-height: 1.85;
+    min-height: 60px;
+    word-break: break-word;
+  }
+  .result .empty { color: #6b7280; font-size: .95rem; }
+  .result h3 {
+    font-size: .78rem; text-transform: uppercase; letter-spacing: .06em;
+    color: #6b7280; margin: 0 0 10px; font-weight: 600;
+  }
+  .result h3:not(:first-child) { margin-top: 22px; }
+
+  .result ins {
+    background: #d9f2e3;
+    color: #0f6b3d;
+    text-decoration: none;
+    border-radius: 4px;
+    padding: 1px 3px;
+  }
+  .result del {
+    background: #fbdde2;
+    color: #a01230;
+    text-decoration: line-through;
+    text-decoration-thickness: 1.5px;
+    border-radius: 4px;
+    padding: 1px 3px;
+  }
+  .result .same { color: #000000; }
+  .match-note {
+    display: inline-flex; align-items: center; gap: 8px;
+    color: #0f6b3d; font-weight: 600; font-size: 1rem;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="clock">
+      <span class="clk-label">현재 시간</span>
+      <span class="clk-date" id="clkDate">—</span>
+      <span class="clk-time" id="clkTime">—</span>
+    </div>
+    <h1>문장 비교기</h1>
+    <p class="sub">두 문장을 입력하면 <strong>다른 부분</strong>을 색으로 하이라이트합니다.</p>
+  </header>
+
+  <div class="inputs">
+    <div class="field">
+      <label for="a">원본 문장</label>
+      <textarea id="a" placeholder="예) 오늘 날씨가 맑고 따뜻하다.">오늘 날씨가 맑고 따뜻하다.</textarea>
+    </div>
+    <div class="field">
+      <label for="b">비교할 문장</label>
+      <textarea id="b" placeholder="예) 오늘 날씨가 흐리고 춥다.">오늘 날씨가 흐리고 조금 춥다.</textarea>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button class="primary" id="run">비교하기</button>
+    <label class="toggle">
+      <input type="checkbox" id="mode">
+      글자 단위로 비교
+    </label>
+  </div>
+
+  <div class="stats" id="stats" hidden>
+    <span><span class="dot del"></span>삭제됨 <b id="ndel">0</b></span>
+    <span><span class="dot add"></span>추가됨 <b id="nadd">0</b></span>
+    <span>일치도 <b id="pct">0%</b></span>
+  </div>
+
+  <div class="result" id="out">
+    <span class="empty">비교하기 버튼을 누르면 결과가 여기에 표시됩니다.</span>
+  </div>
+</div>
+
+<script>
+  const $ = id => document.getElementById(id);
+
+  // 상단 현재 시간 시계 (매초 갱신)
+  function tick() {
+    const now = new Date();
+    const days = ['일', '월', '화', '수', '목', '금', '토'];
+    $('clkDate').textContent =
+      `${now.getFullYear()}년 ${now.getMonth() + 1}월 ${now.getDate()}일 (${days[now.getDay()]})`;
+    $('clkTime').textContent = now.toLocaleTimeString('ko-KR', {
+      hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true
+    });
+  }
+  tick();
+  setInterval(tick, 1000);
+
+  // 토큰화: 단어 단위(공백 유지) 또는 글자 단위
+  function tokenize(text, byChar) {
+    if (byChar) return Array.from(text);
+    // 단어와 공백/구두점을 각각 토큰으로 분리
+    return text.match(/\s+|[^\s]+/g) || [];
+  }
+
+  // LCS 기반 diff → [{type:'same'|'add'|'del', value}]
+  function diff(aToks, bToks) {
+    const n = aToks.length, m = bToks.length;
+    const dp = Array.from({length: n + 1}, () => new Int32Array(m + 1));
+    for (let i = n - 1; i >= 0; i--) {
+      for (let j = m - 1; j >= 0; j--) {
+        dp[i][j] = aToks[i] === bToks[j]
+          ? dp[i + 1][j + 1] + 1
+          : Math.max(dp[i + 1][j], dp[i][j + 1]);
+      }
+    }
+    const out = [];
+    let i = 0, j = 0;
+    const push = (type, value) => {
+      const last = out[out.length - 1];
+      if (last && last.type === type) last.value += value;
+      else out.push({ type, value });
+    };
+    while (i < n && j < m) {
+      if (aToks[i] === bToks[j]) { push('same', aToks[i]); i++; j++; }
+      else if (dp[i + 1][j] >= dp[i][j + 1]) { push('del', aToks[i]); i++; }
+      else { push('add', bToks[j]); j++; }
+    }
+    while (i < n) { push('del', aToks[i]); i++; }
+    while (j < m) { push('add', bToks[j]); j++; }
+    return out;
+  }
+
+  const esc = s => s.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+
+  function render(parts) {
+    return parts.map(p => {
+      const html = esc(p.value).replace(/\n/g, '<br>');
+      if (p.type === 'same') return `<span class="same">${html}</span>`;
+      if (p.type === 'add') return `<ins>${html}</ins>`;
+      return `<del>${html}</del>`;
+    }).join('');
+  }
+
+  function run() {
+    const a = $('a').value;
+    const b = $('b').value;
+    const byChar = $('mode').checked;
+    const parts = diff(tokenize(a, byChar), tokenize(b, byChar));
+
+    const out = $('out');
+    if (a === b) {
+      out.innerHTML = `<span class="match-note"><span class="dot add"></span>두 문장이 완전히 동일합니다.</span>`;
+    } else {
+      out.innerHTML = `<h3>변경 내용</h3>${render(parts)}`;
+    }
+
+    // 통계 (공백 토큰 제외하고 집계)
+    let nAdd = 0, nDel = 0, nSame = 0;
+    for (const p of parts) {
+      const units = byChar ? Array.from(p.value) : (p.value.match(/[^\s]+/g) || []);
+      if (p.type === 'add') nAdd += units.length;
+      else if (p.type === 'del') nDel += units.length;
+      else nSame += units.length;
+    }
+    const total = nSame + nAdd + nDel;
+    const pct = total === 0 ? 100 : Math.round((nSame * 2) / (total + nSame) * 100);
+    $('ndel').textContent = nDel;
+    $('nadd').textContent = nAdd;
+    $('pct').textContent = pct + '%';
+    $('stats').hidden = false;
+  }
+
+  $('run').addEventListener('click', run);
+  $('mode').addEventListener('change', () => { if (!$('stats').hidden) run(); });
+  // Ctrl/Cmd + Enter로 실행
+  document.addEventListener('keydown', e => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') run();
+  });
+  run();
+</script>
+</body>
+</html>
